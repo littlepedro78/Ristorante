@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<title>Genera QR Code Camere — Hotel Canguro</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600&family=Montserrat:wght@300;400;500;600&display=swap');
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Montserrat', sans-serif; background: #f0f0f0; min-height: 100vh; }
+
+/* HEADER CONTROLLI */
+.controls {
+  background: #fff;
+  border-bottom: 1px solid #ddd;
+  padding: 16px 24px;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+.controls h1 {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 20px;
+  font-weight: 400;
+  letter-spacing: 0.1em;
+  color: #111;
+  flex: 1;
+}
+.field-group { display: flex; flex-direction: column; gap: 4px; }
+label { font-size: 9px; letter-spacing: 0.2em; text-transform: uppercase; color: #888; }
+input[type="text"] {
+  border: 1px solid #ccc; padding: 7px 10px;
+  font-family: 'Montserrat', sans-serif; font-size: 12px;
+  color: #222; outline: none; width: 320px;
+}
+input[type="text"]:focus { border-color: #222; }
+.btn {
+  background: #222; color: #fff; border: none;
+  padding: 10px 20px; font-family: 'Montserrat', sans-serif;
+  font-size: 9px; letter-spacing: 0.2em; text-transform: uppercase;
+  cursor: pointer; transition: background 0.15s; white-space: nowrap;
+}
+.btn:hover { background: #444; }
+.btn-outline {
+  background: #fff; color: #222; border: 1px solid #222;
+  padding: 9px 18px; font-family: 'Montserrat', sans-serif;
+  font-size: 9px; letter-spacing: 0.2em; text-transform: uppercase;
+  cursor: pointer; transition: all 0.15s; white-space: nowrap;
+}
+.btn-outline:hover { background: #f5f5f5; }
+
+/* GRIGLIA QR */
+.qr-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 20px 24px;
+  justify-content: flex-start;
+}
+
+/* CARD QR */
+.qr-card {
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  width: 155px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 10px 10px 8px;
+  gap: 6px;
+  page-break-inside: avoid;
+}
+.qr-card .hotel {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #111;
+  text-align: center;
+}
+.qr-card .cam-label {
+  font-size: 8px;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  color: #888;
+}
+.qr-card .cam-num {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 28px;
+  font-weight: 600;
+  color: #111;
+  line-height: 1;
+}
+.qr-card .qr-img { width: 120px; height: 120px; }
+.qr-card .scan-label {
+  font-size: 7px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: #bbb;
+  text-align: center;
+}
+
+/* SEZIONE HEADER */
+.section-hdr {
+  width: 100%;
+  font-size: 9px;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: #888;
+  padding: 8px 24px 0;
+}
+
+@media print {
+  @page { size: A4; margin: 8mm; }
+  .controls { display: none !important; }
+  body { background: #fff; }
+  .qr-grid { padding: 0; gap: 6px; }
+  .section-hdr { padding: 4px 0 0; }
+  .qr-card { width: 148px; }
+}
+</style>
+</head>
+<body>
+
+<div class="controls">
+  <h1>QR Code Camere<span style="display:block;font-family:'Montserrat',sans-serif;font-size:9px;letter-spacing:0.2em;color:#888;text-transform:uppercase;margin-top:2px">Hotel Canguro</span></h1>
+  <div class="field-group">
+    <label>URL base del menu (senza ?cam=)</label>
+    <input type="text" id="base-url" value="https://tuodominio.com/menu_cliente.html" oninput="generaQR()">
+  </div>
+  <button class="btn" onclick="window.print()">🖨 Stampa tutti i QR</button>
+  <button class="btn-outline" onclick="generaQR()">↻ Rigenera</button>
+</div>
+
+<div id="output"></div>
+
+<!-- qrcode.js (libreria leggera, ~10KB) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script>
+const camereCanguro = [101,102,103,104,105,106,107,108,109,201,202,203,204,205,206,207,208,209,301,302,303,304,305,306,307,308,309,401,402,403,404,405,406,407,408,409];
+const camereSfinge  = [501,502,503,504,505,506,507,601,602,603,604,605,606,607,701,702,703,704,705,706,707,801,802];
+
+let qrGenCount = 0;
+
+function generaQR() {
+  const baseUrl = document.getElementById('base-url').value.trim();
+  const output  = document.getElementById('output');
+  output.innerHTML = '';
+  qrGenCount++;
+  const runId = qrGenCount;
+
+  function buildSection(label, camere) {
+    const hdr = document.createElement('div');
+    hdr.className = 'section-hdr';
+    hdr.textContent = label;
+    output.appendChild(hdr);
+
+    const grid = document.createElement('div');
+    grid.className = 'qr-grid';
+    output.appendChild(grid);
+
+    camere.forEach(cam => {
+      const url = `${baseUrl}?cam=${cam}`;
+
+      const card = document.createElement('div');
+      card.className = 'qr-card';
+      card.innerHTML = `
+        <div class="hotel">Hotel Canguro</div>
+        <div class="cam-label">Camera</div>
+        <div class="cam-num">${cam}</div>
+        <div class="qr-img" id="qr-${runId}-${cam}"></div>
+        <div class="scan-label">Inquadra per ordinare</div>
+      `;
+      grid.appendChild(card);
+
+      // Genera QR dopo che il DOM è pronto
+      setTimeout(() => {
+        if (qrGenCount !== runId) return; // Se è stata chiamata di nuovo, salta
+        try {
+          new QRCode(document.getElementById(`qr-${runId}-${cam}`), {
+            text: url,
+            width: 120,
+            height: 120,
+            colorDark: '#111111',
+            colorLight: '#ffffff',
+            correctLevel: QRCode.CorrectLevel.M
+          });
+        } catch(e) {
+          console.error('QR error cam', cam, e);
+        }
+      }, 0);
+    });
+  }
+
+  buildSection('Hotel Canguro', camereCanguro);
+  buildSection('Hotel La Sfinge', camereSfinge);
+}
+
+// Genera al caricamento
+window.addEventListener('load', generaQR);
+</script>
+</body>
+</html>

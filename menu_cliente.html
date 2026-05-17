@@ -251,8 +251,49 @@ body {
   background: #fff;
 }
 
-/* VARIAZIONE */
-.var-section {
+/* SUB-STEPPER SENZA GLUTINE */
+.gf-row {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 7px;
+  padding-top: 7px;
+  border-top: 1px dashed var(--bordo);
+}
+.gf-label {
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--testo2);
+  flex: 1;
+  text-align: right;
+}
+.gf-label span {
+  display: inline-block;
+  background: #f0f7ee;
+  color: #4a7c3f;
+  border: 1px solid #b8d9b2;
+  border-radius: 3px;
+  padding: 1px 5px;
+  font-size: 8px;
+  letter-spacing: 0.08em;
+  font-weight: 600;
+  margin-right: 4px;
+}
+.stepper.gf .step-btn {
+  width: 26px; height: 26px;
+  font-size: 15px;
+  border-color: #b8d9b2;
+  color: #4a7c3f;
+}
+.stepper.gf .step-val {
+  width: 28px; height: 26px;
+  font-size: 13px;
+  border-color: #b8d9b2;
+  color: #4a7c3f;
+}
+.stepper.gf .step-btn:active { background: #d4ecd0; }
   margin: 16px 16px 0;
 }
 .var-label {
@@ -331,7 +372,69 @@ body {
 .btn-conferma:disabled { background: var(--bordo); color: var(--testo2); cursor: default; }
 .btn-conferma.oro { background: var(--oro); }
 
-/* SUCCESSO */
+/* POPUP RIEPILOGO */
+.popup-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.55);
+  z-index: 100;
+  display: flex; align-items: flex-end;
+  opacity: 0; pointer-events: none;
+  transition: opacity 0.25s;
+}
+.popup-overlay.show { opacity: 1; pointer-events: all; }
+.popup-box {
+  background: var(--bg);
+  width: 100%;
+  border-radius: 16px 16px 0 0;
+  padding: 20px 20px 32px;
+  transform: translateY(100%);
+  transition: transform 0.3s cubic-bezier(0.32,0.72,0,1);
+  max-height: 85vh;
+  overflow-y: auto;
+}
+.popup-overlay.show .popup-box { transform: translateY(0); }
+.popup-handle {
+  width: 40px; height: 4px; background: var(--bordo);
+  border-radius: 2px; margin: 0 auto 16px;
+}
+.popup-title {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 22px; font-weight: 600;
+  color: var(--nero); margin-bottom: 16px;
+  text-align: center;
+}
+.popup-section {
+  font-size: 9px; letter-spacing: 0.25em;
+  text-transform: uppercase; color: var(--oro);
+  font-weight: 600; margin: 14px 0 8px;
+  border-bottom: 1px solid var(--bordo);
+  padding-bottom: 6px;
+}
+.popup-row {
+  display: flex; justify-content: space-between;
+  align-items: center; padding: 6px 0;
+  border-bottom: 1px solid var(--bordo);
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 16px; color: var(--nero);
+}
+.popup-row .qty { font-weight: 700; color: var(--oro); }
+.popup-gf { font-size: 11px; color: #4a7c3f; margin-left: 6px; }
+.popup-empty { font-size: 12px; color: var(--testo2); text-align: center; padding: 8px 0; }
+.popup-btns { display: flex; flex-direction: column; gap: 10px; margin-top: 20px; }
+.btn-conferma-ok {
+  width: 100%; background: var(--nero); color: #fff;
+  border: none; padding: 16px;
+  font-family: 'Montserrat', sans-serif; font-size: 11px;
+  letter-spacing: 0.25em; text-transform: uppercase;
+  cursor: pointer; border-radius: 6px;
+}
+.btn-torna {
+  width: 100%; background: none; color: var(--testo2);
+  border: 1px solid var(--bordo); padding: 12px;
+  font-family: 'Montserrat', sans-serif; font-size: 11px;
+  letter-spacing: 0.15em; text-transform: uppercase;
+  cursor: pointer; border-radius: 6px;
+}
 .successo-page {
   display: none;
   flex-direction: column;
@@ -469,14 +572,21 @@ function renderMenu() {
     });
     panel.appendChild(sezSecondi);
 
-    // Variazione
-    const varSec = document.createElement('div');
-    varSec.className = 'var-section';
-    varSec.innerHTML = `
-      <div class="var-label">Variazioni / note</div>
-      <textarea class="var-input" id="var-${p}" placeholder="Es. senza glutine, allergie, preferenze..."
-        oninput="window._aggiornaRiepilogo('${p}')">${comanda[p]?.var || ''}</textarea>`;
-    panel.appendChild(varSec);
+    // Variazioni (solo se il menu ne ha)
+    const varPasto = p === 'pranzo'
+      ? [menu?.pranzo_v1, menu?.pranzo_v2]
+      : [menu?.cena_v1,   menu?.cena_v2];
+    const varAttive = varPasto.filter(Boolean);
+    if (varAttive.length > 0) {
+      const sezVar = document.createElement('div');
+      sezVar.className = 'sezione';
+      sezVar.style.marginTop = '20px';
+      sezVar.innerHTML = '<div class="sezione-title">Variazioni</div>';
+      varAttive.forEach((nome, i) => {
+        sezVar.appendChild(buildCardVar(p, i+1, nome));
+      });
+      panel.appendChild(sezVar);
+    }
 
     // Riepilogo
     const riepilogoDiv = document.createElement('div');
@@ -490,20 +600,34 @@ function renderMenu() {
   document.getElementById('content').style.display = 'block';
   document.getElementById('footer-bar').style.display = 'block';
 
-  // Se già confermata oggi
+  // Se già confermata oggi — ascolta anche sblocchi futuri dal gestionale
   const dataKey = (menu?.data || dataOggi()).replace(/-/g,'');
   const refCom = ref(db, `comande/${dataKey}/${camera}`);
-  get(refCom).then(snap => {
-    if (snap.exists()) {
-      const saved = snap.val();
-      confermata = saved.confermata || false;
-      if (confermata) {
-        mostraSuccesso(true);
-      } else {
-        // Ripristina valori
-        comanda = saved;
-        renderValori();
-      }
+  onValue(refCom, snap => {
+    if (!snap.exists()) return;
+    const saved = snap.val();
+    const eraConfermata = confermata;
+    confermata = saved.confermata === true;
+    if (confermata && !eraConfermata) {
+      // appena confermata
+    } else if (!confermata && eraConfermata) {
+      // sbloccata dal gestionale — riapri il menu
+      document.getElementById('successo').classList.remove('show');
+      document.getElementById('content').style.display = 'block';
+      document.getElementById('footer-bar').style.display = 'block';
+      comanda = saved;
+      renderValori();
+      const btn = document.getElementById('btn-conferma');
+      btn.disabled = false;
+      btn.textContent = 'Aggiorna comanda';
+      btn.classList.add('oro');
+    } else if (confermata && eraConfermata === false) {
+      mostraSuccesso(true);
+    }
+    if (!eraConfermata && confermata === false && snap.exists()) {
+      // Prima visita — non ancora confermata
+      comanda = saved;
+      renderValori();
     }
   });
 }
@@ -513,34 +637,64 @@ function buildCard(pasto, key, nome, num) {
   div.className = 'piatto-card' + (nome ? '' : ' disabled');
   div.id = `card-${pasto}-${key}`;
 
-  const qty = comanda[pasto]?.[key] || 0;
+  const qty   = comanda[pasto]?.[key]    || 0;
+  const qtyGf = comanda[pasto]?.[key+'_gf'] || 0;
+  const dis   = !nome ? 'disabled' : '';
 
   div.innerHTML = `
     <div class="piatto-num">${num}</div>
-    <div class="piatto-nome${!nome ? ' vuoto' : ''}">${nome || 'Non disponibile'}</div>
+    <div style="flex:1;min-width:0">
+      <div class="piatto-nome${!nome ? ' vuoto' : ''}">${nome || 'Non disponibile'}</div>
+      ${nome ? `
+      <div class="gf-row">
+        <div class="gf-label"><span>🌾✗ GF</span>di cui senza glutine</div>
+        <div class="stepper gf">
+          <button class="step-btn minus" onclick="window._stepGf('${pasto}','${key}',-1)" ${dis}>−</button>
+          <div class="step-val" id="val-${pasto}-${key}-gf">${qtyGf}</div>
+          <button class="step-btn plus" onclick="window._stepGf('${pasto}','${key}',+1)" ${dis}>+</button>
+        </div>
+      </div>` : ''}
+    </div>
     <div class="stepper">
-      <button class="step-btn minus" onclick="window._step('${pasto}','${key}',-1)" ${!nome?'disabled':''}>−</button>
+      <button class="step-btn minus" onclick="window._step('${pasto}','${key}',-1)" ${dis}>−</button>
       <div class="step-val" id="val-${pasto}-${key}">${qty}</div>
-      <button class="step-btn plus" onclick="window._step('${pasto}','${key}',+1)" ${!nome?'disabled':''}>+</button>
+      <button class="step-btn plus" onclick="window._step('${pasto}','${key}',+1)" ${dis}>+</button>
     </div>`;
 
   if (qty > 0) div.classList.add('selected');
   return div;
 }
 
+function buildCardVar(pasto, num, nome) {
+  const div = document.createElement('div');
+  div.className = 'piatto-card';
+  div.id = `card-${pasto}-v${num}`;
+  const qty = comanda[pasto]?.[`v${num}`] || 0;
+  if (qty > 0) div.classList.add('selected');
+  div.innerHTML = `
+    <div class="piatto-num" style="color:var(--testo2);font-size:16px">V${num}</div>
+    <div class="piatto-nome" style="flex:1">${nome}</div>
+    <div class="stepper">
+      <button class="step-btn minus" onclick="window._step('${pasto}','v${num}',-1)">−</button>
+      <div class="step-val" id="val-${pasto}-v${num}">${qty}</div>
+      <button class="step-btn plus" onclick="window._step('${pasto}','v${num}',+1)">+</button>
+    </div>`;
+  return div;
+}
+
 function renderValori() {
   ['pranzo','cena'].forEach(p => {
-    ['p1','p2','p3','s1','s2','s3'].forEach(k => {
+    ['p1','p2','p3','s1','s2','s3','v1','v2'].forEach(k => {
       const el = document.getElementById(`val-${p}-${k}`);
-      if (el) { el.textContent = comanda[p]?.[k] || 0; }
+      if (el) el.textContent = comanda[p]?.[k] || 0;
+      const elGf = document.getElementById(`val-${p}-${k}-gf`);
+      if (elGf) elGf.textContent = comanda[p]?.[k+'_gf'] || 0;
       const card = document.getElementById(`card-${p}-${k}`);
       if (card) {
         if ((comanda[p]?.[k] || 0) > 0) card.classList.add('selected');
         else card.classList.remove('selected');
       }
     });
-    const ta = document.getElementById('var-' + p);
-    if (ta) ta.value = comanda[p]?.var || '';
     aggiornaRiepilogo(p);
   });
 }
@@ -550,24 +704,65 @@ function aggiornaRiepilogo(p) {
   if (!div) return;
   const nomi = {
     p1: menu?.[p+'_p1'], p2: menu?.[p+'_p2'], p3: menu?.[p+'_p3'],
-    s1: menu?.[p+'_s1'], s2: menu?.[p+'_s2'], s3: menu?.[p+'_s3']
+    s1: menu?.[p+'_s1'], s2: menu?.[p+'_s2'], s3: menu?.[p+'_s3'],
+    v1: menu?.[p+'_v1'], v2: menu?.[p+'_v2']
   };
   const rows = Object.entries(nomi)
     .filter(([k, n]) => n && (comanda[p]?.[k] || 0) > 0)
-    .map(([k, n]) => `<div class="riepilogo-row"><span class="nome">${n}</span><span class="qty">×${comanda[p][k]}</span></div>`)
-    .join('');
-
-  const varNote = document.getElementById('var-' + p)?.value || '';
-  const varRow = varNote ? `<div class="riepilogo-row" style="margin-top:6px;color:var(--testo2);font-size:11px;"><span>Note:</span><span style="text-align:right;max-width:60%">${varNote}</span></div>` : '';
-
+    .map(([k, n]) => {
+      const qty   = comanda[p][k];
+      const qtyGf = comanda[p]?.[k+'_gf'] || 0;
+      const gfTag = qtyGf > 0 ? ` <span style="font-size:10px;color:#4a7c3f">(${qtyGf} GF)</span>` : '';
+      return `<div class="riepilogo-row"><span class="nome">${n}${gfTag}</span><span class="qty">×${qty}</span></div>`;
+    }).join('');
   div.innerHTML = `<div class="riepilogo-title">Riepilogo ${p}</div>` +
-    (rows ? rows + varRow : '<div class="riepilogo-vuoto">Nessun piatto selezionato</div>');
+    (rows ? rows : '<div class="riepilogo-vuoto">Nessun piatto selezionato</div>');
 }
+
+// ── POPUP RIEPILOGO ──────────────────────────────────────────
+window._apriPopup = function() {
+  const body = document.getElementById('popup-body');
+  let html = '';
+  ['pranzo','cena'].forEach(p => {
+    const nomi = {
+      p1: menu?.[p+'_p1'], p2: menu?.[p+'_p2'], p3: menu?.[p+'_p3'],
+      s1: menu?.[p+'_s1'], s2: menu?.[p+'_s2'], s3: menu?.[p+'_s3'],
+      v1: menu?.[p+'_v1'], v2: menu?.[p+'_v2']
+    };
+    const righe = Object.entries(nomi)
+      .filter(([k,n]) => n && (comanda[p]?.[k]||0) > 0)
+      .map(([k,n]) => {
+        const qty = comanda[p][k];
+        const gf  = comanda[p]?.[k+'_gf'] || 0;
+        const gfTag = gf > 0 ? `<span class="popup-gf">(${gf} GF)</span>` : '';
+        return `<div class="popup-row"><span>${n}${gfTag}</span><span class="qty">×${qty}</span></div>`;
+      }).join('');
+    html += `<div class="popup-section">${p.charAt(0).toUpperCase()+p.slice(1)}</div>`;
+    html += righe || '<div class="popup-empty">Nessun piatto selezionato</div>';
+  });
+  body.innerHTML = html;
+  document.getElementById('popup-overlay').classList.add('show');
+};
+
+window._chiudiPopup = function() {
+  document.getElementById('popup-overlay').classList.remove('show');
+};
+
+// Chiudi popup toccando l'overlay
+document.getElementById('popup-overlay').addEventListener('click', function(e) {
+  if (e.target === this) window._chiudiPopup();
+});
 
 // Esponi funzioni globali (chiamate da onclick inline)
 window._step = function(p, k, delta) {
   if (!comanda[p]) comanda[p] = {};
   comanda[p][k] = Math.max(0, (comanda[p][k] || 0) + delta);
+  // GF non può superare il totale
+  if ((comanda[p][k+'_gf'] || 0) > comanda[p][k]) {
+    comanda[p][k+'_gf'] = comanda[p][k];
+    const elGf = document.getElementById(`val-${p}-${k}-gf`);
+    if (elGf) elGf.textContent = comanda[p][k+'_gf'];
+  }
   const el = document.getElementById(`val-${p}-${k}`);
   if (el) el.textContent = comanda[p][k];
   const card = document.getElementById(`card-${p}-${k}`);
@@ -578,19 +773,21 @@ window._step = function(p, k, delta) {
   aggiornaRiepilogo(p);
 };
 
+window._stepGf = function(p, k, delta) {
+  if (!comanda[p]) comanda[p] = {};
+  const max = comanda[p][k] || 0; // GF non può superare il totale del piatto
+  comanda[p][k+'_gf'] = Math.min(max, Math.max(0, (comanda[p][k+'_gf'] || 0) + delta));
+  const el = document.getElementById(`val-${p}-${k}-gf`);
+  if (el) el.textContent = comanda[p][k+'_gf'];
+  aggiornaRiepilogo(p);
+};
+
 window._aggiornaRiepilogo = function(p) { aggiornaRiepilogo(p); };
 
 window._conferma = async function() {
-  const btn = document.getElementById('btn-conferma');
+  const btn = document.getElementById('btn-conferma-ok');
   btn.disabled = true;
   btn.textContent = 'Invio in corso...';
-
-  // Raccoglie note variazione
-  ['pranzo','cena'].forEach(p => {
-    const ta = document.getElementById('var-' + p);
-    if (!comanda[p]) comanda[p] = {};
-    comanda[p].var = ta?.value || '';
-  });
 
   const dataKey = (menu?.data || dataOggi()).replace(/-/g,'');
   const payload = {
@@ -604,23 +801,18 @@ window._conferma = async function() {
 
   try {
     await set(ref(db, `comande/${dataKey}/${camera}`), payload);
+    window._chiudiPopup();
     mostraSuccesso(false);
   } catch(e) {
     btn.disabled = false;
-    btn.textContent = 'Conferma comanda';
+    btn.textContent = 'Invia comanda';
     alert('Errore di rete. Riprova.');
   }
 };
 
 window._modifica = function() {
-  document.getElementById('successo').classList.remove('show');
-  document.getElementById('content').style.display = 'block';
-  document.getElementById('footer-bar').style.display = 'block';
-  confermata = false;
-  const btn = document.getElementById('btn-conferma');
-  btn.disabled = false;
-  btn.textContent = 'Aggiorna comanda';
-  btn.classList.add('oro');
+  // Il pulsante modifica non è visibile — lo sblocco avviene solo dal gestionale
+  // Questa funzione non fa nulla, il pulsante è nascosto nel successo
 };
 
 function mostraSuccesso(gia) {
@@ -693,14 +885,27 @@ init().catch(e => {
   <div class="successo-icon">✅</div>
   <div class="successo-title">Grazie!</div>
   <div class="successo-sub" id="successo-msg">La tua comanda è stata inviata alla cucina.</div>
-  <button class="btn-modifica" onclick="window._modifica()">Modifica comanda</button>
+  <button class="btn-modifica" onclick="window._modifica()" style="display:none">Modifica comanda</button>
 </div>
 
 <!-- FOOTER -->
 <div class="footer-bar" id="footer-bar" style="display:none">
-  <button class="btn-conferma" id="btn-conferma" onclick="window._conferma()">
+  <button class="btn-conferma" id="btn-conferma" onclick="window._apriPopup()">
     Conferma comanda
   </button>
+</div>
+
+<!-- POPUP RIEPILOGO -->
+<div class="popup-overlay" id="popup-overlay">
+  <div class="popup-box">
+    <div class="popup-handle"></div>
+    <div class="popup-title">Riepilogo comanda</div>
+    <div id="popup-body"></div>
+    <div class="popup-btns">
+      <button class="btn-conferma-ok" id="btn-conferma-ok" onclick="window._conferma()">Invia comanda</button>
+      <button class="btn-torna" onclick="window._chiudiPopup()">Torna al menu</button>
+    </div>
+  </div>
 </div>
 
 </body>
