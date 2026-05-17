@@ -94,83 +94,74 @@ window._avviaListenerCucina = function() {
       const box = row.querySelector('.c-tot');
       if (!box) return;
       if (tot > 0) {
+        box.style.border = 'none';
+        box.style.background = 'none';
         box.style.display = 'flex';
-        box.style.flexDirection = 'column';
-        box.style.alignItems = 'center';
+        box.style.alignItems = 'baseline';
         box.style.justifyContent = 'center';
-        box.style.fontSize = '20px';
+        box.style.gap = '6px';
+        box.style.fontSize = '22px';
         box.style.fontWeight = '900';
         box.style.color = '#000';
-        box.style.background = '#fff';
-        box.innerHTML = `<span>${tot}</span>${totGf > 0 ? `<span style="font-size:9px;font-weight:700;color:#4a7c3f">${totGf} GF</span>` : ''}`;
+        box.innerHTML = `<span>${tot}</span>${totGf > 0 ? `<span style="font-size:22px;font-weight:900;color:#000">${totGf}GF</span>` : ''}`;
       } else {
         box.innerHTML = '';
+        box.style.border = '';
+        box.style.background = '';
       }
     });
 
-    // Totali variazioni — aggiorna le righe c-var-row
-    // Raccoglie v1 e v2 per pranzo e cena
-    const varTotali = {};
+    // Totali variazioni — raccoglie per nome (da v1_nome / v2_nome nella comanda)
+    const varTotaliPerNome = {};
     Object.values(comande).forEach(cam => {
       ['pranzo','cena'].forEach(pasto => {
         ['v1','v2'].forEach(vk => {
-          const qty = cam?.[pasto]?.[vk] || 0;
-          if (qty <= 0) return;
-          const key = pasto + '_' + vk;
-          varTotali[key] = (varTotali[key] || 0) + qty;
+          const qty     = cam?.[pasto]?.[vk]          || 0;
+          const nome    = cam?.[pasto]?.[vk+'_nome']  || '';
+          if (qty <= 0 || !nome) return;
+          const key = pasto + '_' + nome;
+          if (!varTotaliPerNome[key]) varTotaliPerNome[key] = { pasto, nome, tot: 0 };
+          varTotaliPerNome[key].tot += qty;
         });
       });
     });
 
-    // Mappa key → riga c-var-row (pranzo: prime 2, cena: ultime 2)
-    const varMap = [
-      { key:'pranzo_v1', prefix:'p', idx:0 },
-      { key:'pranzo_v2', prefix:'p', idx:1 },
-      { key:'cena_v1',   prefix:'c', idx:0 },
-      { key:'cena_v2',   prefix:'c', idx:1 },
-    ];
-
-    // Cerca le righe c-var-row per pranzo e cena
+    // Raggruppa per pasto e assegna alle righe c-var-row
     const cucinaEl = document.querySelector('.cucina-wrap');
     if (!cucinaEl) return;
     const colonnePasto = cucinaEl.querySelectorAll('.c-lr-grid > div:not(.c-lr-divider)');
-    // colonnePasto[0] = pranzo, colonnePasto[1] = cena
+
     ['pranzo','cena'].forEach((pasto, pi) => {
       const col = colonnePasto[pi];
       if (!col) return;
       const varRows = col.querySelectorAll('.c-var-row');
-      ['v1','v2'].forEach((vk, vi) => {
-        const key = pasto + '_' + vk;
-        const tot = varTotali[key] || 0;
+      const varDiQuestoPasto = Object.values(varTotaliPerNome).filter(v => v.pasto === pasto);
+
+      // Reset tutte le righe var
+      varRows.forEach(row => {
+        row.innerHTML = '';
+        const lineEl = document.createElement('div');
+        lineEl.className = 'c-var-line';
+        row.appendChild(lineEl);
+      });
+
+      // Riempie con le variazioni trovate
+      varDiQuestoPasto.forEach((varObj, vi) => {
         const row = varRows[vi];
         if (!row) return;
-        // Recupera nome variazione dal menu pubblicato
-        const nomeVar = document.getElementById(pasto === 'pranzo' ? `c_p_p1` : `c_c_p1`)
-          ?.closest('.c-lr-grid > div')
-          ?.querySelector(`[data-varkey="${key}"]`)?.textContent || '';
-
         row.innerHTML = '';
-        if (tot > 0) {
-          // Mostra nome variazione + totale
-          const nomeEl = document.createElement('span');
-          nomeEl.className = 'c-var-lbl';
-          // Cerca il nome dal menu_oggi
-          const nomeVarMenu = window._menuOggiCucina?.[pasto+'_'+vk] || key;
-          nomeEl.textContent = nomeVarMenu;
-          const lineEl = document.createElement('div');
-          lineEl.className = 'c-var-line';
-          const totEl = document.createElement('div');
-          totEl.className = 'c-tot';
-          totEl.style.cssText = 'width:60px;height:32px;border:1.5px solid #222;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:900;color:#000;flex-shrink:0;';
-          totEl.textContent = tot;
-          row.appendChild(nomeEl);
-          row.appendChild(lineEl);
-          row.appendChild(totEl);
-        } else {
-          const lineEl = document.createElement('div');
-          lineEl.className = 'c-var-line';
-          row.appendChild(lineEl);
-        }
+        const nomeEl = document.createElement('span');
+        nomeEl.className = 'c-var-lbl';
+        nomeEl.textContent = varObj.nome;
+        nomeEl.style.color = '#000';
+        const lineEl = document.createElement('div');
+        lineEl.className = 'c-var-line';
+        const totEl = document.createElement('span');
+        totEl.style.cssText = 'font-size:22px;font-weight:900;color:#000;flex-shrink:0;margin-left:8px;';
+        totEl.textContent = varObj.tot;
+        row.appendChild(nomeEl);
+        row.appendChild(lineEl);
+        row.appendChild(totEl);
       });
     });
   });
@@ -974,7 +965,20 @@ function caricaDatabaseBuiltin(){
 
 caricaDatabaseBuiltin();
 CAMPI.forEach(id=>buildCampo(id));
-aggiorna();
+
+// Carica automaticamente il menu di domani se esiste nello storico
+(function caricaMenuDomani(){
+  const domani = new Date();
+  domani.setDate(domani.getDate() + 1);
+  const domaniStr = domani.toISOString().split('T')[0];
+  document.getElementById('data').value = domaniStr;
+  const storico = db('storico', []);
+  const menuDomani = storico.find(s => s.data === domaniStr);
+  if (menuDomani) {
+    CAMPI.forEach(id => { if(menuDomani[id] && menuDomani[id]!=='—') setValCampo(id, menuDomani[id]); });
+  }
+  aggiorna();
+})();
 </script>
 </body>
 </html>
