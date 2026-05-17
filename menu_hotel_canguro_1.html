@@ -29,6 +29,8 @@ const dataKey = new Date().toISOString().split('T')[0].replace(/-/g,'');
 // Pubblica il menu su Firebase (chiamata da salvaEScarica)
 window._pubblicaMenuFirebase = async function(dati) {
   try {
+    // Legge le variazioni dall'archivio locale
+    const varList = db('piatti_variazione', []);
     const payload = {
       data:       dati.data,
       pranzo_p1:  dati.p_p1 || '',
@@ -43,11 +45,8 @@ window._pubblicaMenuFirebase = async function(dati) {
       cena_s1:    dati.c_s1 || '',
       cena_s2:    dati.c_s2 || '',
       cena_s3:    dati.c_s3 || '',
-      // variazioni
-      pranzo_v1:  dati.pv1 || '',
-      pranzo_v2:  dati.pv2 || '',
-      cena_v1:    dati.cv1 || '',
-      cena_v2:    dati.cv2 || '',
+      // variazioni: lista completa dall'archivio
+      variazioni: varList,
       pubblicato: Date.now()
     };
     await set(ref(fbDb, 'menu_oggi'), payload);
@@ -184,11 +183,18 @@ onValue(ref(fbDb, 'menu_oggi'), snap => {
 window._sbloccaCamera = async function(camera) {
   try {
     await update(ref(fbDb, `comande/${dataKey}/${camera}`), { confermata: false });
-    document.getElementById(`sblocco-btn-${camera}`).textContent = '✓ Sbloccata';
-    document.getElementById(`sblocco-btn-${camera}`).disabled = true;
-    document.getElementById(`sblocco-row-${camera}`).style.opacity = '0.5';
   } catch(e) {
     alert('Errore sblocco: ' + e.message);
+  }
+};
+
+// Reset camera — cancella completamente la comanda (cambio ospite)
+window._resetCamera = async function(camera) {
+  if (!confirm(`Cancellare completamente la comanda della camera ${camera}?\nUsa questa funzione solo se l'ospite è cambiato.\nL'operazione non può essere annullata.`)) return;
+  try {
+    await set(ref(fbDb, `comande/${dataKey}/${camera}`), null);
+  } catch(e) {
+    alert('Errore reset: ' + e.message);
   }
 };
 
@@ -217,15 +223,20 @@ window._initSblocco = function() {
         const bloccata = data.confermata === true;
         const pranzoStr = ['p1','p2','p3'].map(k => data.pranzo?.[k] ? `${k.toUpperCase()}:${data.pranzo[k]}` : '').filter(Boolean).join(' ');
         const cenaStr   = ['p1','p2','p3'].map(k => data.cena?.[k]   ? `${k.toUpperCase()}:${data.cena[k]}`   : '').filter(Boolean).join(' ');
-        return `<div id="sblocco-row-${cam}" style="background:#fff;border:1px solid #ddd;padding:0.9rem 1.25rem;display:flex;align-items:center;justify-content:space-between;${!bloccata?'opacity:0.5':''}">
+        return `<div id="sblocco-row-${cam}" style="background:#fff;border:1px solid #ddd;padding:0.9rem 1.25rem;display:flex;align-items:center;justify-content:space-between;">
           <div>
             <div style="font-family:'Cormorant Garamond',serif;font-size:18px;color:#000">Camera ${cam}</div>
             <div style="font-size:10px;color:#aaa;margin-top:2px">${pranzoStr ? 'Pranzo: '+pranzoStr : ''} ${cenaStr ? '· Cena: '+cenaStr : ''}</div>
-            <div style="font-size:10px;margin-top:2px;color:${bloccata?'#c00':'#27ae60'}">${bloccata ? '🔒 Bloccata' : '🔓 Sbloccata'}</div>
+            <div style="font-size:10px;margin-top:2px;color:${bloccata?'#c00':'#27ae60'}">${bloccata ? '🔒 Bloccata' : '🔓 Sbloccata — può modificare'}</div>
           </div>
-          <button id="sblocco-btn-${cam}" class="btn-small" onclick="window._sbloccaCamera('${cam}')" ${!bloccata?'disabled':''} style="white-space:nowrap">
-            ${bloccata ? 'Sblocca' : '✓ Già sbloccata'}
-          </button>
+          <div style="display:flex;gap:6px;flex-shrink:0">
+            <button class="btn-small" onclick="window._sbloccaCamera('${cam}')" ${!bloccata?'disabled':''} style="white-space:nowrap">
+              ${bloccata ? 'Sblocca' : '✓ Sbloccata'}
+            </button>
+            <button class="btn-small" onclick="window._resetCamera('${cam}')" style="white-space:nowrap;color:#c00;border-color:#f99">
+              Reset ospite
+            </button>
+          </div>
         </div>`;
       }).join('');
   });
@@ -458,23 +469,6 @@ input[type="text"]:focus, input[type="date"]:focus, select:focus { border-color:
       </div>
     </div>
 
-    <!-- VARIAZIONI -->
-    <div style="border-top:1px solid #eee;padding-top:0.75rem;">
-      <div class="section-hdr" style="margin-bottom:0.5rem">Variazioni (menu a tendina clienti)</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;">
-        <div class="subsection">
-          <div class="subsection-title">Pranzo</div>
-          <div class="dish-input-row"><span class="dish-n">1</span><div class="dish-select-wrap" id="w_pv1"></div></div>
-          <div class="dish-input-row"><span class="dish-n">2</span><div class="dish-select-wrap" id="w_pv2"></div></div>
-        </div>
-        <div class="subsection">
-          <div class="subsection-title">Cena</div>
-          <div class="dish-input-row"><span class="dish-n">1</span><div class="dish-select-wrap" id="w_cv1"></div></div>
-          <div class="dish-input-row"><span class="dish-n">2</span><div class="dish-select-wrap" id="w_cv2"></div></div>
-        </div>
-      </div>
-    </div>
-
     <div style="display:flex;flex-direction:column;gap:6px;">
       <button class="btn-primary" onclick="salvaEScarica()">Salva e stampa</button>
       <button class="btn-outline" onclick="stampaMenu()">Solo stampa</button>
@@ -697,7 +691,6 @@ input[type="text"]:focus, input[type="date"]:focus, select:focus { border-color:
 
 <script>
 const CAMPI = ['p_p1','p_p2','p_p3','p_s1','p_s2','p_s3','c_p1','c_p2','c_p3','c_s1','c_s2','c_s3'];
-const CAMPI_VAR = ['pv1','pv2','cv1','cv2']; // variazioni pranzo 1-2, cena 1-2
 function db(k,d){try{return JSON.parse(localStorage.getItem(k))||d;}catch(e){return d;}}
 function dbSet(k,v){localStorage.setItem(k,JSON.stringify(v));}
 function cap(s){if(!s)return s;return s.charAt(0).toUpperCase()+s.slice(1);}
@@ -774,7 +767,6 @@ function aggiorna(){
 function salvaEScarica(){
   const dati={data:document.getElementById('data').value};
   CAMPI.forEach(id=>{dati[id]=getValCampo(id);});
-  CAMPI_VAR.forEach(id=>{dati[id]=getValCampo(id);});
   const storico=db('storico',[]);
   const idx=storico.findIndex(s=>s.data===dati.data);
   if(idx>=0)storico[idx]=dati;else storico.unshift(dati);
@@ -857,12 +849,23 @@ function aggiungiPiatto(cat){
   if(!n)return;
   const piatti=db('piatti_'+cat,[]);
   if(!piatti.includes(n)){piatti.push(n);piatti.sort();dbSet('piatti_'+cat,piatti);}
-  inp.value='';renderArchivio();CAMPI.forEach(id=>buildCampo(id));CAMPI_VAR.forEach(id=>buildCampo(id));aggiorna();
+  inp.value='';renderArchivio();CAMPI.forEach(id=>buildCampo(id));aggiorna();
+  // Quando si aggiunge/rimuove una variazione, aggiorna subito Firebase
+  if(cat==='variazione' && window._pubblicaMenuFirebase){
+    const dati={data:document.getElementById('data').value};
+    CAMPI.forEach(id=>{dati[id]=getValCampo(id);});
+    window._pubblicaMenuFirebase(dati);
+  }
 }
 
 function eliminaPiatto(cat,nome){
   dbSet('piatti_'+cat,db('piatti_'+cat,[]).filter(p=>p!==nome));
-  renderArchivio();CAMPI.forEach(id=>buildCampo(id));CAMPI_VAR.forEach(id=>buildCampo(id));aggiorna();
+  renderArchivio();CAMPI.forEach(id=>buildCampo(id));aggiorna();
+  if(cat==='variazione' && window._pubblicaMenuFirebase){
+    const dati={data:document.getElementById('data').value};
+    CAMPI.forEach(id=>{dati[id]=getValCampo(id);});
+    window._pubblicaMenuFirebase(dati);
+  }
 }
 
 function renderArchivio(){
@@ -971,7 +974,6 @@ function caricaDatabaseBuiltin(){
 
 caricaDatabaseBuiltin();
 CAMPI.forEach(id=>buildCampo(id));
-CAMPI_VAR.forEach(id=>buildCampo(id));
 aggiorna();
 </script>
 </body>

@@ -572,18 +572,15 @@ function renderMenu() {
     });
     panel.appendChild(sezSecondi);
 
-    // Variazioni (solo se il menu ne ha)
-    const varPasto = p === 'pranzo'
-      ? [menu?.pranzo_v1, menu?.pranzo_v2]
-      : [menu?.cena_v1,   menu?.cena_v2];
-    const varAttive = varPasto.filter(Boolean);
-    if (varAttive.length > 0) {
+    // Variazioni — lista dall'archivio, menu a tendina + stepper, max 2
+    const varList = menu?.variazioni || [];
+    if (varList.length > 0) {
       const sezVar = document.createElement('div');
       sezVar.className = 'sezione';
       sezVar.style.marginTop = '20px';
       sezVar.innerHTML = '<div class="sezione-title">Variazioni</div>';
-      varAttive.forEach((nome, i) => {
-        sezVar.appendChild(buildCardVar(p, i+1, nome));
+      [1, 2].forEach(num => {
+        sezVar.appendChild(buildCardVar(p, num, varList));
       });
       panel.appendChild(sezVar);
     }
@@ -665,20 +662,34 @@ function buildCard(pasto, key, nome, num) {
   return div;
 }
 
-function buildCardVar(pasto, num, nome) {
+function buildCardVar(pasto, num, varList) {
   const div = document.createElement('div');
   div.className = 'piatto-card';
   div.id = `card-${pasto}-v${num}`;
-  const qty = comanda[pasto]?.[`v${num}`] || 0;
+
+  const scelta = comanda[pasto]?.[`v${num}_nome`] || '';
+  const qty    = comanda[pasto]?.[`v${num}`]      || 0;
   if (qty > 0) div.classList.add('selected');
+
+  // Opzioni select
+  const opzioni = varList.map(v =>
+    `<option value="${v}" ${v === scelta ? 'selected' : ''}>${v}</option>`
+  ).join('');
+
   div.innerHTML = `
-    <div class="piatto-num" style="color:var(--testo2);font-size:16px">V${num}</div>
-    <div class="piatto-nome" style="flex:1">${nome}</div>
-    <div class="stepper">
+    <div style="flex:1;min-width:0">
+      <select id="sel-${pasto}-v${num}" style="width:100%;border:1px solid var(--bordo);padding:6px 8px;font-family:'Montserrat',sans-serif;font-size:12px;color:var(--testo);background:#fff;outline:none;border-radius:4px;margin-bottom:4px;"
+        onchange="window._scegliVar('${pasto}',${num},this.value)">
+        <option value="">— Scegli variazione —</option>
+        ${opzioni}
+      </select>
+    </div>
+    <div class="stepper" style="margin-left:10px">
       <button class="step-btn minus" onclick="window._step('${pasto}','v${num}',-1)">−</button>
       <div class="step-val" id="val-${pasto}-v${num}">${qty}</div>
       <button class="step-btn plus" onclick="window._step('${pasto}','v${num}',+1)">+</button>
     </div>`;
+
   return div;
 }
 
@@ -705,7 +716,7 @@ function aggiornaRiepilogo(p) {
   const nomi = {
     p1: menu?.[p+'_p1'], p2: menu?.[p+'_p2'], p3: menu?.[p+'_p3'],
     s1: menu?.[p+'_s1'], s2: menu?.[p+'_s2'], s3: menu?.[p+'_s3'],
-    v1: menu?.[p+'_v1'], v2: menu?.[p+'_v2']
+    v1: comanda[p]?.v1_nome, v2: comanda[p]?.v2_nome
   };
   const rows = Object.entries(nomi)
     .filter(([k, n]) => n && (comanda[p]?.[k] || 0) > 0)
@@ -727,7 +738,7 @@ window._apriPopup = function() {
     const nomi = {
       p1: menu?.[p+'_p1'], p2: menu?.[p+'_p2'], p3: menu?.[p+'_p3'],
       s1: menu?.[p+'_s1'], s2: menu?.[p+'_s2'], s3: menu?.[p+'_s3'],
-      v1: menu?.[p+'_v1'], v2: menu?.[p+'_v2']
+      v1: comanda[p]?.v1_nome, v2: comanda[p]?.v2_nome
     };
     const righe = Object.entries(nomi)
       .filter(([k,n]) => n && (comanda[p]?.[k]||0) > 0)
@@ -756,6 +767,13 @@ document.getElementById('popup-overlay').addEventListener('click', function(e) {
 // Esponi funzioni globali (chiamate da onclick inline)
 window._step = function(p, k, delta) {
   if (!comanda[p]) comanda[p] = {};
+  // Per le variazioni (v1, v2) blocca + se non è stato scelto un nome
+  if ((k === 'v1' || k === 'v2') && delta > 0 && !comanda[p][k+'_nome']) {
+    const sel = document.getElementById(`sel-${p}-${k}`);
+    if (sel) sel.style.borderColor = 'var(--oro)';
+    setTimeout(() => { if(sel) sel.style.borderColor = ''; }, 1000);
+    return;
+  }
   comanda[p][k] = Math.max(0, (comanda[p][k] || 0) + delta);
   // GF non può superare il totale
   if ((comanda[p][k+'_gf'] || 0) > comanda[p][k]) {
@@ -782,7 +800,21 @@ window._stepGf = function(p, k, delta) {
   aggiornaRiepilogo(p);
 };
 
-window._aggiornaRiepilogo = function(p) { aggiornaRiepilogo(p); };
+// Scelta variazione dal select
+window._scegliVar = function(p, num, nome) {
+  if (!comanda[p]) comanda[p] = {};
+  comanda[p][`v${num}_nome`] = nome;
+  // Se si deseleziona, azzera anche il contatore
+  if (!nome) comanda[p][`v${num}`] = 0;
+  const el = document.getElementById(`val-${p}-v${num}`);
+  if (el) el.textContent = comanda[p][`v${num}`] || 0;
+  const card = document.getElementById(`card-${p}-v${num}`);
+  if (card) {
+    if ((comanda[p][`v${num}`] || 0) > 0 && nome) card.classList.add('selected');
+    else card.classList.remove('selected');
+  }
+  aggiornaRiepilogo(p);
+};
 
 window._conferma = async function() {
   const btn = document.getElementById('btn-conferma-ok');
