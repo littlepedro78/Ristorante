@@ -1,0 +1,755 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Menu Hotel Canguro</title>
+<!-- Firebase SDK -->
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+import { getDatabase, ref, set } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js';
+
+// ── CONFIGURAZIONE FIREBASE ──────────────────────────────────
+// Copia le tue credenziali dalla console Firebase
+const FIREBASE_CONFIG = {
+  apiKey:            "AIzaSyC40uKHHAG4HjBzRZdVdRqLyxDDKjELM0g",
+  authDomain:        "hotel-canguro.firebaseapp.com",
+  databaseURL:       "https://hotel-canguro-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId:         "hotel-canguro",
+  storageBucket:     "hotel-canguro.firebasestorage.app",
+  messagingSenderId: "790068611588",
+  appId:             "1:790068611588:web:5189509820eddc7d59c351"
+};
+// ────────────────────────────────────────────────────────────
+
+const fbApp = initializeApp(FIREBASE_CONFIG);
+const fbDb  = getDatabase(fbApp);
+
+// Pubblica il menu su Firebase (chiamata da salvaEScarica)
+window._pubblicaMenuFirebase = async function(dati) {
+  try {
+    const payload = {
+      data:       dati.data,
+      pranzo_p1:  dati.p_p1 || '',
+      pranzo_p2:  dati.p_p2 || '',
+      pranzo_p3:  dati.p_p3 || '',
+      pranzo_s1:  dati.p_s1 || '',
+      pranzo_s2:  dati.p_s2 || '',
+      pranzo_s3:  dati.p_s3 || '',
+      cena_p1:    dati.c_p1 || '',
+      cena_p2:    dati.c_p2 || '',
+      cena_p3:    dati.c_p3 || '',
+      cena_s1:    dati.c_s1 || '',
+      cena_s2:    dati.c_s2 || '',
+      cena_s3:    dati.c_s3 || '',
+      pubblicato: Date.now()
+    };
+    await set(ref(fbDb, 'menu_oggi'), payload);
+    document.getElementById('status').textContent = '✓ Salvato e pubblicato su Firebase!';
+    console.log('Menu pubblicato su Firebase:', payload);
+  } catch(e) {
+    console.error('Errore Firebase:', e);
+    document.getElementById('status').textContent = '✓ Salvato localmente (Firebase offline)';
+  }
+};
+</script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=Montserrat:wght@300;400;500&display=swap');
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Montserrat', sans-serif; background: #f0f0f0; min-height: 100vh; }
+
+/* TABS */
+.tabs { display: flex; background: #fff; border-bottom: 1px solid #ddd; }
+.tab { padding: 14px 22px; font-size: 9px; letter-spacing: 0.2em; text-transform: uppercase; cursor: pointer; border-bottom: 2px solid transparent; color: #888; transition: all 0.15s; }
+.tab.active { color: #000; border-bottom-color: #222; }
+.tab:hover:not(.active) { color: #444; }
+.page { display: none; }
+.page.active { display: flex; }
+
+/* PAGINA MENU */
+#pageMenu { min-height: calc(100vh - 45px); }
+
+.panel { width: 700px; min-width: 700px; background: #fff; border-right: 1px solid #ddd; padding: 1.25rem 1.5rem; display: flex; flex-direction: column; gap: 0.9rem; overflow-y: auto; max-height: calc(100vh - 45px); }
+.panel-title { font-family: 'Cormorant Garamond', serif; font-size: 20px; font-weight: 400; letter-spacing: 0.1em; color: #111; border-bottom: 1px solid #222; padding-bottom: 0.5rem; }
+.panel-title span { display: block; font-family: 'Montserrat', sans-serif; font-size: 9px; letter-spacing: 0.25em; text-transform: uppercase; color: #888; margin-top: 3px; }
+
+.field-group { display: flex; flex-direction: column; gap: 4px; }
+label { font-size: 9px; letter-spacing: 0.2em; text-transform: uppercase; color: #000; }
+input[type="text"], input[type="date"], select { border: 1px solid #ccc; padding: 7px 10px; font-family: 'Montserrat', sans-serif; font-size: 12px; color: #222; width: 100%; outline: none; transition: border-color 0.15s; background: #fff; }
+input[type="text"] { text-transform: capitalize; }
+input[type="text"]:focus, input[type="date"]:focus, select:focus { border-color: #222; }
+
+.meal-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+.meal-col { display: flex; flex-direction: column; gap: 0.5rem; }
+.section-hdr { font-size: 9px; letter-spacing: 0.25em; text-transform: uppercase; color: #000; font-weight: 500; padding: 0.25rem 0; border-bottom: 1px solid #222; }
+.subsection { display: flex; flex-direction: column; gap: 0.3rem; }
+.subsection-title { font-size: 8px; letter-spacing: 0.2em; text-transform: uppercase; color: #000; }
+.dish-input-row { display: flex; align-items: center; gap: 6px; }
+.dish-n { font-family: 'Cormorant Garamond', serif; font-size: 13px; font-style: italic; color: #000; min-width: 12px; text-align: center; flex-shrink: 0; }
+.dish-select-wrap { flex: 1; display: flex; gap: 4px; }
+.dish-select-wrap select { flex: 1; }
+.dish-select-wrap input { flex: 1; display: none; text-transform: capitalize; }
+.btn-back { background: none; border: 1px solid #ccc; padding: 7px 8px; cursor: pointer; font-size: 11px; color: #888; flex-shrink: 0; transition: all 0.15s; display: none; }
+.btn-back:hover { border-color: #222; color: #222; }
+
+.btn-primary { background: #222; color: #fff; border: none; padding: 12px 20px; font-family: 'Montserrat', sans-serif; font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; cursor: pointer; width: 100%; transition: background 0.15s; }
+.btn-primary:hover { background: #444; }
+.btn-outline { background: #fff; color: #222; border: 1px solid #222; padding: 10px 20px; font-family: 'Montserrat', sans-serif; font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; cursor: pointer; width: 100%; transition: all 0.15s; }
+.btn-outline:hover { background: #f5f5f5; }
+.btn-small { background: none; border: 1px solid #ccc; padding: 5px 10px; font-family: 'Montserrat', sans-serif; font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer; color: #666; transition: all 0.15s; }
+.btn-small:hover { border-color: #222; color: #222; }
+.status { font-size: 10px; color: #888; text-align: center; min-height: 16px; }
+
+/* PREVIEW */
+.preview { flex: 1; padding: 1rem; overflow-y: auto; display: flex; flex-direction: column; align-items: center; gap: 0; max-height: calc(100vh - 45px); }
+.preview-label { font-size: 9px; letter-spacing: 0.2em; text-transform: uppercase; color: #aaa; align-self: flex-start; margin-bottom: 0.75rem; }
+.preview-cards { display: flex; flex-direction: column; gap: 0; width: 100%; max-width: 560px; align-items: stretch; }
+.preview-cards .menu-card { font-size: 80%; }
+.cut-line-print { display: flex; width: 100%; max-width: 560px; align-items: center; gap: 8px; margin: 6px 0; }
+.cut-dashes { flex: 1; border-bottom: 1px dashed #555; }
+.cut-label { font-family: 'Montserrat', sans-serif; font-size: 8px; letter-spacing: 0.15em; text-transform: uppercase; color: #bbb; white-space: nowrap; }
+
+/* MENU CARD */
+.menu-card { background: #fff; border: 1px solid #000; border-radius: 8px; overflow: hidden; }
+.menu-card::before { content: ''; display: block; height: 3px; background: #000; }
+.menu-inner { padding: 1.1rem 1.6rem 1.4rem; }
+.hotel-header { text-align: center; padding-bottom: 0.8rem; margin-bottom: 0.9rem; border-bottom: 1px solid #222; }
+.hotel-name { font-family: 'Cormorant Garamond', serif; font-size: 28px; font-weight: 600; letter-spacing: 0.2em; text-transform: uppercase; color: #000; margin: 0 0 4px; }
+.hotel-sub { font-family: 'Montserrat', sans-serif; font-size: 8px; letter-spacing: 0.35em; text-transform: uppercase; color: #000; font-weight: 600; }
+.menu-meta { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
+.menu-date-lbl { font-family: 'Montserrat', sans-serif; font-size: 10px; letter-spacing: 0.15em; text-transform: uppercase; color: #000; font-weight: 700; }
+.room-box { display: flex; align-items: center; gap: 10px; border: 1px solid #000; border-radius: 4px; padding: 6px 14px; min-height: 36px; }
+.room-label { font-family: 'Montserrat', sans-serif; font-size: 8px; letter-spacing: 0.2em; text-transform: uppercase; color: #000; font-weight: 700; }
+.room-space { width: 44px; }
+.meals-row { display: grid; grid-template-columns: 1fr 0.5px 1fr; gap: 0 1.25rem; }
+.divider-v { background: #000; }
+.meal-title-lbl { font-family: 'Montserrat', sans-serif; font-size: 9px; font-weight: 800; letter-spacing: 0.3em; text-transform: uppercase; color: #000; white-space: nowrap; }
+.meal-hr-line { height: 1px; background: #000; margin-bottom: 0.65rem; margin-top: 4px; }
+.section-title-sm { font-family: 'Montserrat', sans-serif; font-size: 8px; letter-spacing: 0.22em; text-transform: uppercase; color: #000; margin: 0 0 5px; font-weight: 700; }
+.dish-row { display: flex; align-items: center; gap: 7px; padding: 5px 0; border-bottom: 1px solid #222; }
+.d-num { font-family: 'Cormorant Garamond', serif; font-size: 16px; font-style: italic; font-weight: 700; color: #000; min-width: 13px; text-align: center; flex-shrink: 0; }
+.d-name { font-family: 'Cormorant Garamond', serif; font-size: 16px; font-weight: 700; color: #000; flex: 1; line-height: 1.3; }
+.num-box { width: 32px; height: 20px; border: 1px solid #000; border-radius: 3px; flex-shrink: 0; background: #fff; }
+.var-row { display: flex; align-items: center; gap: 7px; padding: 4px 0; border-bottom: 1px solid #222; margin-top: 3px; }
+.var-lbl { font-family: 'Montserrat', sans-serif; font-size: 7px; letter-spacing: 0.15em; text-transform: uppercase; color: #000; white-space: nowrap; flex-shrink: 0; font-weight: 700; }
+.var-line { flex: 1; border-bottom: 1px solid #222; height: 11px; }
+.sec-divider { height: 1px; background: #222; margin: 0.65rem 0; }
+
+/* LINEA DI TAGLIO */
+.cut-line { display: flex; align-items: center; gap: 8px; width: 100%; max-width: 100%; }
+.cut-dashes { flex: 1; border-bottom: 1px dashed #555; }
+.cut-label { font-family: 'Montserrat', sans-serif; font-size: 8px; letter-spacing: 0.15em; text-transform: uppercase; color: #000; }
+
+/* PAGINA ARCHIVIO */
+#pageArchivio { flex-direction: column; padding: 1.5rem; gap: 1.25rem; min-height: calc(100vh - 45px); background: #f0f0f0; }
+.archivio-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+.card { background: #fff; border: 1px solid #ddd; padding: 1.25rem; }
+.card-title { font-size: 9px; letter-spacing: 0.25em; text-transform: uppercase; color: #000; font-weight: 500; border-bottom: 1px solid #222; padding-bottom: 0.5rem; margin-bottom: 0.9rem; }
+.add-row { display: flex; gap: 6px; margin-bottom: 0.75rem; }
+.add-row input { flex: 1; }
+.piatti-list { display: flex; flex-direction: column; gap: 4px; max-height: 300px; overflow-y: auto; }
+.piatto-item { display: flex; align-items: center; justify-content: space-between; padding: 6px 10px; background: #f8f8f8; border: 0.5px solid #eee; }
+.piatto-item span { flex: 1; font-size: 12px; color: #333; }
+.btn-del { background: none; border: none; color: #ccc; cursor: pointer; font-size: 16px; padding: 0 4px; transition: color 0.15s; line-height: 1; }
+.btn-del:hover { color: #c00; }
+.empty-piatti { color: #ccc; font-size: 11px; padding: 10px; text-align: center; }
+
+/* PAGINA STORICO */
+#pageStorico { flex-direction: column; padding: 1.5rem; gap: 1rem; min-height: calc(100vh - 45px); background: #f0f0f0; }
+.page-title { font-size: 9px; letter-spacing: 0.25em; text-transform: uppercase; color: #000; }
+.storico-list { display: flex; flex-direction: column; gap: 8px; }
+.storico-item { background: #fff; border: 1px solid #ddd; padding: 1rem 1.25rem; display: flex; align-items: center; justify-content: space-between; }
+.storico-date { font-family: 'Cormorant Garamond', serif; font-size: 17px; color: #000; }
+.storico-preview { font-size: 10px; color: #aaa; margin-top: 2px; }
+.storico-actions { display: flex; gap: 6px; }
+.empty-msg { color: #bbb; font-size: 11px; text-align: center; padding: 2rem; letter-spacing: 0.1em; }
+
+/* PAGINA CUCINA */
+#pageCucina { flex-direction: column; padding: 1.5rem; gap: 1rem; min-height: calc(100vh - 45px); background: #f0f0f0; align-items: center; }
+.cucina-wrap { background: #fff; border: 1.5px solid #222; width: 100%; max-width: 960px; overflow: hidden; }
+.cucina-wrap::before { content: ''; display: block; height: 5px; background: #222; }
+.cucina-inner { padding: 1rem 1.75rem 1.25rem; }
+.cucina-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1.5px solid #222; padding-bottom: 0.5rem; margin-bottom: 0.75rem; }
+.cucina-title-center { font-family: 'Cormorant Garamond', serif; font-size: 42px; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; color: #000; text-align: center; flex: 1; }
+.cucina-date { font-family: 'Montserrat', sans-serif; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: #000; font-weight: bold; }
+.meals-stack { display: flex; flex-direction: column; }
+.c-lr-grid { display: grid; grid-template-columns: 1fr 2px 1fr; gap: 0 1.5rem; }
+.c-lr-divider { background: #222; }
+.c-meal-title { font-family: 'Montserrat', sans-serif; font-size: 11px; font-weight: 700; letter-spacing: 0.3em; text-transform: uppercase; color: #000; margin-bottom: 6px; }
+.c-meal-hr { height: 1.5px; background: #222; margin-bottom: 0.75rem; }
+.c-sections { display: grid; grid-template-columns: 1fr 1px 1fr; gap: 0 1.25rem; }
+.c-divider { background: #ccc; }
+.c-section-lbl { font-family: 'Montserrat', sans-serif; font-size: 9px; letter-spacing: 0.22em; text-transform: uppercase; color: #000; font-weight: bold; margin: 0 0 0.4rem; }
+.c-dish-row { display: flex; align-items: center; gap: 10px; padding: 7px 0; border-bottom: 1px solid #222; }
+.c-num { font-family: 'Cormorant Garamond', serif; font-size: 22px; font-weight: 700; font-style: italic; color: #000; min-width: 18px; text-align: center; flex-shrink: 0; }
+.c-dish { font-family: 'Cormorant Garamond', serif; font-size: 22px; font-weight: 700; color: #000; flex: 1; line-height: 1.3; }
+.c-tot { width: 60px; height: 32px; border: 1.5px solid #222; flex-shrink: 0; background: #fff; }
+.c-var-row { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid #222; margin-top: 4px; }
+.c-var-lbl { font-family: 'Montserrat', sans-serif; font-size: 9px; letter-spacing: 0.15em; text-transform: uppercase; color: #000; font-weight: bold; white-space: nowrap; flex-shrink: 0; }
+.c-var-line { flex: 1; border-bottom: 1px solid #222; height: 22px; }
+.c-sec-div { height: 1px; background: #ddd; margin: 0.6rem 0; }
+.btn-cucina-stampa { background: #222; color: #fff; border: none; padding: 12px 28px; font-family: 'Montserrat', sans-serif; font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; cursor: pointer; transition: background 0.15s; }
+.btn-cucina-stampa:hover { background: #444; }
+
+@media print {
+  @page { size: A4; margin: 8mm; }
+  .tabs, .panel, .preview-label, .btn-cucina-stampa, .status { display: none !important; }
+  .page { display: none !important; }
+  #pageMenu.active { display: block !important; }
+  #pageMenu.active .preview {
+    display: flex !important; flex-direction: column !important;
+    align-items: stretch !important; padding: 0 !important;
+    gap: 0 !important; max-height: none !important;
+    overflow: visible !important; width: 100% !important;
+  }
+  #pageMenu.active .preview-cards {
+    max-width: 100% !important; width: 100% !important;
+    display: flex !important; flex-direction: column !important; gap: 0 !important;
+  }
+  #pageMenu.active .preview-cards .menu-card {
+    font-size: 100% !important;
+    height: 128mm !important;
+    min-height: 128mm !important;
+    max-height: 128mm !important;
+    overflow: hidden !important;
+    box-sizing: border-box !important;
+  }
+  .cut-line-print {
+    max-width: 100% !important;
+    height: 6mm !important;
+    margin: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+  }
+  #pageCucina.active { display: flex !important; padding: 0 !important; background: #fff !important; }
+  #pageCucina.active .cucina-wrap { max-width: 100% !important; border: none !important; }
+  @page cucina { size: A4 landscape; margin: 8mm; }
+}
+</style>
+</head>
+<body>
+
+<div class="tabs">
+  <div class="tab active" onclick="showTab('pageMenu')">Menu del giorno</div>
+  <div class="tab" onclick="showTab('pageArchivio')">Archivio piatti</div>
+  <div class="tab" onclick="showTab('pageStorico')">Storico menu</div>
+  <div class="tab" onclick="showTab('pageCucina')">Foglio cucina</div>
+</div>
+
+<!-- PAGINA MENU -->
+<div id="pageMenu" class="page active">
+  <div class="panel">
+    <div class="panel-title">Hotel Canguro<span>Menu giornaliero</span></div>
+
+    <div class="field-group">
+      <label>Data</label>
+      <input type="date" id="data" oninput="aggiorna()">
+    </div>
+
+    <div class="meal-grid">
+      <div class="meal-col">
+        <div class="section-hdr">Pranzo</div>
+        <div class="subsection">
+          <div class="subsection-title">Primi piatti</div>
+          <div class="dish-input-row"><span class="dish-n">1</span><div class="dish-select-wrap" id="w_p_p1"></div></div>
+          <div class="dish-input-row"><span class="dish-n">2</span><div class="dish-select-wrap" id="w_p_p2"></div></div>
+          <div class="dish-input-row"><span class="dish-n">3</span><div class="dish-select-wrap" id="w_p_p3"></div></div>
+        </div>
+        <div class="subsection">
+          <div class="subsection-title">Secondi piatti</div>
+          <div class="dish-input-row"><span class="dish-n">1</span><div class="dish-select-wrap" id="w_p_s1"></div></div>
+          <div class="dish-input-row"><span class="dish-n">2</span><div class="dish-select-wrap" id="w_p_s2"></div></div>
+          <div class="dish-input-row"><span class="dish-n">3</span><div class="dish-select-wrap" id="w_p_s3"></div></div>
+        </div>
+      </div>
+      <div class="meal-col">
+        <div class="section-hdr">Cena</div>
+        <div class="subsection">
+          <div class="subsection-title">Primi piatti</div>
+          <div class="dish-input-row"><span class="dish-n">1</span><div class="dish-select-wrap" id="w_c_p1"></div></div>
+          <div class="dish-input-row"><span class="dish-n">2</span><div class="dish-select-wrap" id="w_c_p2"></div></div>
+          <div class="dish-input-row"><span class="dish-n">3</span><div class="dish-select-wrap" id="w_c_p3"></div></div>
+        </div>
+        <div class="subsection">
+          <div class="subsection-title">Secondi piatti</div>
+          <div class="dish-input-row"><span class="dish-n">1</span><div class="dish-select-wrap" id="w_c_s1"></div></div>
+          <div class="dish-input-row"><span class="dish-n">2</span><div class="dish-select-wrap" id="w_c_s2"></div></div>
+          <div class="dish-input-row"><span class="dish-n">3</span><div class="dish-select-wrap" id="w_c_s3"></div></div>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:6px;">
+      <button class="btn-primary" onclick="salvaEScarica()">Salva e stampa</button>
+      <button class="btn-outline" onclick="stampaMenu()">Solo stampa</button>
+      <div class="status" id="status"></div>
+    </div>
+  </div>
+
+  <div class="preview">
+    <div class="preview-label">Anteprima</div>
+    <div class="preview-cards">
+
+      <!-- COMANDA 1 -->
+      <div class="menu-card">
+        <div class="menu-inner">
+          <div class="hotel-header">
+            <div class="hotel-name">Hotel Canguro</div>
+            <div class="hotel-sub">Ristorante &amp; Soggiorno</div>
+          </div>
+          <div class="menu-meta">
+            <div class="menu-date-lbl" id="d1">—</div>
+            <div class="room-box"><span class="room-label">Camera</span><span class="room-space"></span></div>
+          </div>
+          <div class="meals-row">
+            <div>
+              <div class="meal-title-lbl">Pranzo</div><div class="meal-hr-line"></div>
+              <div class="section-title-sm">Primi piatti</div>
+              <div class="dish-row"><span class="d-num">1</span><span class="d-name" id="v_p_p1">—</span><div class="num-box"></div></div>
+              <div class="dish-row"><span class="d-num">2</span><span class="d-name" id="v_p_p2">—</span><div class="num-box"></div></div>
+              <div class="dish-row"><span class="d-num">3</span><span class="d-name" id="v_p_p3">—</span><div class="num-box"></div></div>
+              <div class="var-row"><span class="var-lbl">Variazioni</span><div class="var-line"></div></div>
+              <div class="sec-divider"></div>
+              <div class="section-title-sm">Secondi piatti</div>
+              <div class="dish-row"><span class="d-num">1</span><span class="d-name" id="v_p_s1">—</span><div class="num-box"></div></div>
+              <div class="dish-row"><span class="d-num">2</span><span class="d-name" id="v_p_s2">—</span><div class="num-box"></div></div>
+              <div class="dish-row"><span class="d-num">3</span><span class="d-name" id="v_p_s3">—</span><div class="num-box"></div></div>
+              <div class="var-row"><span class="var-lbl">Variazioni</span><div class="var-line"></div></div>
+            </div>
+            <div class="divider-v"></div>
+            <div>
+              <div class="meal-title-lbl">Cena</div><div class="meal-hr-line"></div>
+              <div class="section-title-sm">Primi piatti</div>
+              <div class="dish-row"><span class="d-num">1</span><span class="d-name" id="v_c_p1">—</span><div class="num-box"></div></div>
+              <div class="dish-row"><span class="d-num">2</span><span class="d-name" id="v_c_p2">—</span><div class="num-box"></div></div>
+              <div class="dish-row"><span class="d-num">3</span><span class="d-name" id="v_c_p3">—</span><div class="num-box"></div></div>
+              <div class="var-row"><span class="var-lbl">Variazioni</span><div class="var-line"></div></div>
+              <div class="sec-divider"></div>
+              <div class="section-title-sm">Secondi piatti</div>
+              <div class="dish-row"><span class="d-num">1</span><span class="d-name" id="v_c_s1">—</span><div class="num-box"></div></div>
+              <div class="dish-row"><span class="d-num">2</span><span class="d-name" id="v_c_s2">—</span><div class="num-box"></div></div>
+              <div class="dish-row"><span class="d-num">3</span><span class="d-name" id="v_c_s3">—</span><div class="num-box"></div></div>
+              <div class="var-row"><span class="var-lbl">Variazioni</span><div class="var-line"></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- LINEA TAGLIO -->
+      <div class="cut-line-print"><div class="cut-dashes"></div></div>
+
+      <!-- COMANDA 2 -->
+      <div class="menu-card">
+        <div class="menu-inner">
+          <div class="hotel-header">
+            <div class="hotel-name">Hotel Canguro</div>
+            <div class="hotel-sub">Ristorante &amp; Soggiorno</div>
+          </div>
+          <div class="menu-meta">
+            <div class="menu-date-lbl" id="d2">—</div>
+            <div class="room-box"><span class="room-label">Camera</span><span class="room-space"></span></div>
+          </div>
+          <div class="meals-row">
+            <div>
+              <div class="meal-title-lbl">Pranzo</div><div class="meal-hr-line"></div>
+              <div class="section-title-sm">Primi piatti</div>
+              <div class="dish-row"><span class="d-num">1</span><span class="d-name" id="v2_p_p1">—</span><div class="num-box"></div></div>
+              <div class="dish-row"><span class="d-num">2</span><span class="d-name" id="v2_p_p2">—</span><div class="num-box"></div></div>
+              <div class="dish-row"><span class="d-num">3</span><span class="d-name" id="v2_p_p3">—</span><div class="num-box"></div></div>
+              <div class="var-row"><span class="var-lbl">Variazioni</span><div class="var-line"></div></div>
+              <div class="sec-divider"></div>
+              <div class="section-title-sm">Secondi piatti</div>
+              <div class="dish-row"><span class="d-num">1</span><span class="d-name" id="v2_p_s1">—</span><div class="num-box"></div></div>
+              <div class="dish-row"><span class="d-num">2</span><span class="d-name" id="v2_p_s2">—</span><div class="num-box"></div></div>
+              <div class="dish-row"><span class="d-num">3</span><span class="d-name" id="v2_p_s3">—</span><div class="num-box"></div></div>
+              <div class="var-row"><span class="var-lbl">Variazioni</span><div class="var-line"></div></div>
+            </div>
+            <div class="divider-v"></div>
+            <div>
+              <div class="meal-title-lbl">Cena</div><div class="meal-hr-line"></div>
+              <div class="section-title-sm">Primi piatti</div>
+              <div class="dish-row"><span class="d-num">1</span><span class="d-name" id="v2_c_p1">—</span><div class="num-box"></div></div>
+              <div class="dish-row"><span class="d-num">2</span><span class="d-name" id="v2_c_p2">—</span><div class="num-box"></div></div>
+              <div class="dish-row"><span class="d-num">3</span><span class="d-name" id="v2_c_p3">—</span><div class="num-box"></div></div>
+              <div class="var-row"><span class="var-lbl">Variazioni</span><div class="var-line"></div></div>
+              <div class="sec-divider"></div>
+              <div class="section-title-sm">Secondi piatti</div>
+              <div class="dish-row"><span class="d-num">1</span><span class="d-name" id="v2_c_s1">—</span><div class="num-box"></div></div>
+              <div class="dish-row"><span class="d-num">2</span><span class="d-name" id="v2_c_s2">—</span><div class="num-box"></div></div>
+              <div class="dish-row"><span class="d-num">3</span><span class="d-name" id="v2_c_s3">—</span><div class="num-box"></div></div>
+              <div class="var-row"><span class="var-lbl">Variazioni</span><div class="var-line"></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- fine preview-cards -->
+
+  </div>
+</div>
+
+<!-- PAGINA ARCHIVIO -->
+<div id="pageArchivio" class="page">
+  <div class="page-title">Archivio piatti</div>
+  <div style="display:flex;gap:8px;margin-bottom:0.5rem;">
+    <button class="btn-small" onclick="scaricaBackup()">⬇ Scarica backup</button>
+    <label class="btn-small" style="cursor:pointer">⬆ Ripristina backup <input type="file" accept=".json" style="display:none" onchange="ripristinaBackup(this)"></label>
+  </div>
+  <div class="archivio-grid">
+    <div class="card">
+      <div class="card-title">Primi piatti</div>
+      <div class="add-row">
+        <input type="text" id="newPrimo" placeholder="Aggiungi primo piatto..." onkeydown="if(event.key==='Enter')aggiungiPiatto('primo')">
+        <button class="btn-small" onclick="aggiungiPiatto('primo')">+ Aggiungi</button>
+      </div>
+      <div class="piatti-list" id="listPrimi"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Secondi piatti</div>
+      <div class="add-row">
+        <input type="text" id="newSecondo" placeholder="Aggiungi secondo piatto..." onkeydown="if(event.key==='Enter')aggiungiPiatto('secondo')">
+        <button class="btn-small" onclick="aggiungiPiatto('secondo')">+ Aggiungi</button>
+      </div>
+      <div class="piatti-list" id="listSecondi"></div>
+    </div>
+  </div>
+</div>
+
+<!-- PAGINA STORICO -->
+<div id="pageStorico" class="page">
+  <div class="page-title">Storico menu salvati</div>
+  <div class="storico-list" id="storicoList"></div>
+</div>
+
+<!-- PAGINA CUCINA -->
+<div id="pageCucina" class="page">
+  <button class="btn-cucina-stampa" onclick="stampaCucina()">Stampa foglio cucina (orizzontale)</button>
+  <div class="cucina-wrap">
+    <div class="cucina-inner">
+      <div class="cucina-header">
+        <div class="cucina-date" id="c_data">—</div>
+        <div class="cucina-title-center">CUCINA</div>
+        <div class="cucina-date">Hotel Canguro</div>
+      </div>
+      <div class="meals-stack">
+        <!-- LAYOUT: Pranzo sinistra | Cena destra, Primi sopra Secondi sotto -->
+        <div class="c-lr-grid">
+
+          <!-- PRANZO sinistra -->
+          <div>
+            <div class="c-meal-title">Pranzo<div class="c-meal-hr"></div></div>
+            <div class="c-section-lbl">Primi piatti</div>
+            <div class="c-dish-row"><span class="c-num">1</span><span class="c-dish" id="c_p_p1">—</span><div class="c-tot"></div></div>
+            <div class="c-dish-row"><span class="c-num">2</span><span class="c-dish" id="c_p_p2">—</span><div class="c-tot"></div></div>
+            <div class="c-dish-row"><span class="c-num">3</span><span class="c-dish" id="c_p_p3">—</span><div class="c-tot"></div></div>
+            <div class="c-var-row"><div class="c-var-line"></div></div>
+            <div class="c-var-row"><div class="c-var-line"></div></div>
+            <div class="c-var-row"><div class="c-var-line"></div></div>
+            <div class="c-sec-div"></div>
+            <div class="c-section-lbl">Secondi piatti</div>
+            <div class="c-dish-row"><span class="c-num">1</span><span class="c-dish" id="c_p_s1">—</span><div class="c-tot"></div></div>
+            <div class="c-dish-row"><span class="c-num">2</span><span class="c-dish" id="c_p_s2">—</span><div class="c-tot"></div></div>
+            <div class="c-dish-row"><span class="c-num">3</span><span class="c-dish" id="c_p_s3">—</span><div class="c-tot"></div></div>
+            <div class="c-var-row"><div class="c-var-line"></div></div>
+            <div class="c-var-row"><div class="c-var-line"></div></div>
+            <div class="c-var-row"><div class="c-var-line"></div></div>
+          </div>
+
+          <div class="c-lr-divider"></div>
+
+          <!-- CENA destra -->
+          <div>
+            <div class="c-meal-title">Cena<div class="c-meal-hr"></div></div>
+            <div class="c-section-lbl">Primi piatti</div>
+            <div class="c-dish-row"><span class="c-num">1</span><span class="c-dish" id="c_c_p1">—</span><div class="c-tot"></div></div>
+            <div class="c-dish-row"><span class="c-num">2</span><span class="c-dish" id="c_c_p2">—</span><div class="c-tot"></div></div>
+            <div class="c-dish-row"><span class="c-num">3</span><span class="c-dish" id="c_c_p3">—</span><div class="c-tot"></div></div>
+            <div class="c-var-row"><div class="c-var-line"></div></div>
+            <div class="c-var-row"><div class="c-var-line"></div></div>
+            <div class="c-var-row"><div class="c-var-line"></div></div>
+            <div class="c-sec-div"></div>
+            <div class="c-section-lbl">Secondi piatti</div>
+            <div class="c-dish-row"><span class="c-num">1</span><span class="c-dish" id="c_c_s1">—</span><div class="c-tot"></div></div>
+            <div class="c-dish-row"><span class="c-num">2</span><span class="c-dish" id="c_c_s2">—</span><div class="c-tot"></div></div>
+            <div class="c-dish-row"><span class="c-num">3</span><span class="c-dish" id="c_c_s3">—</span><div class="c-tot"></div></div>
+            <div class="c-var-row"><div class="c-var-line"></div></div>
+            <div class="c-var-row"><div class="c-var-line"></div></div>
+            <div class="c-var-row"><div class="c-var-line"></div></div>
+          </div>
+
+        </div><!-- fine c-lr-grid -->
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const CAMPI = ['p_p1','p_p2','p_p3','p_s1','p_s2','p_s3','c_p1','c_p2','c_p3','c_s1','c_s2','c_s3'];
+function db(k,d){try{return JSON.parse(localStorage.getItem(k))||d;}catch(e){return d;}}
+function dbSet(k,v){localStorage.setItem(k,JSON.stringify(v));}
+function cap(s){if(!s)return s;return s.charAt(0).toUpperCase()+s.slice(1);}
+
+function catPerCampo(id){
+  const parts=id.split('_');
+  return parts[1].charAt(0)==='p'?'primo':'secondo';
+}
+
+function buildCampo(id){
+  const wrap=document.getElementById('w_'+id);
+  if(!wrap)return;
+  const cat=catPerCampo(id);
+  const piatti=db('piatti_'+cat,[]);
+  const sel=document.createElement('select');
+  sel.id='sel_'+id;
+  let html='<option value="">— Scegli o scrivi —</option><option value="__new__">✏ Scrivi manualmente...</option>';
+  if(piatti.length){html+='<option disabled>──────────────</option>';piatti.forEach(p=>{html+=`<option value="${p}">${p}</option>`;});}
+  sel.innerHTML=html;
+  sel.style.flex='1';
+  sel.addEventListener('change',()=>{
+    if(sel.value==='__new__'){sel.style.display='none';inp.style.display='block';btn.style.display='block';inp.value='';inp.focus();}
+    aggiorna();
+  });
+  const inp=document.createElement('input');
+  inp.type='text';inp.id='inp_'+id;inp.placeholder='Scrivi piatto...';inp.style.flex='1';inp.style.display='none';
+  inp.addEventListener('input',aggiorna);
+  const btn=document.createElement('button');
+  btn.className='btn-back';btn.id='btn_'+id;btn.textContent='↩';btn.title='Torna alla lista';btn.style.display='none';
+  btn.onclick=()=>{inp.style.display='none';btn.style.display='none';sel.style.display='block';sel.value='';aggiorna();};
+  wrap.innerHTML='';wrap.appendChild(sel);wrap.appendChild(inp);wrap.appendChild(btn);
+}
+
+function getValCampo(id){
+  const sel=document.getElementById('sel_'+id);
+  const inp=document.getElementById('inp_'+id);
+  if(!sel)return '—';
+  let v='';
+  if(inp&&inp.style.display!=='none')v=inp.value.trim();
+  else if(sel.value&&sel.value!=='__new__')v=sel.value;
+  return v?cap(v):'—';
+}
+
+function setValCampo(id,val){
+  const sel=document.getElementById('sel_'+id);
+  const inp=document.getElementById('inp_'+id);
+  const btn=document.getElementById('btn_'+id);
+  if(!sel||!val||val==='—')return;
+  for(let o of sel.options){if(o.value===val){sel.value=val;return;}}
+  sel.style.display='none';inp.style.display='block';if(btn)btn.style.display='block';inp.value=val;
+}
+
+function fmtData(v){
+  if(!v)return '—';
+  const[y,m,d]=v.split('-');
+  const G=['Domenica','Lunedi','Martedi','Mercoledi','Giovedi','Venerdi','Sabato'];
+  const M=['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno','Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'];
+  const dt=new Date(y,parseInt(m)-1,d);
+  return `${G[dt.getDay()]} ${parseInt(d)} ${M[parseInt(m)-1]} ${y}`;
+}
+
+function aggiorna(){
+  const data=fmtData(document.getElementById('data').value);
+  document.getElementById('d1').textContent=data;
+  document.getElementById('d2').textContent=data;
+  CAMPI.forEach(id=>{
+    const v=getValCampo(id);
+    ['v_','v2_'].forEach(pre=>{const el=document.getElementById(pre+id);if(el)el.textContent=v;});
+  });
+}
+
+function salvaEScarica(){
+  const dati={data:document.getElementById('data').value};
+  CAMPI.forEach(id=>{dati[id]=getValCampo(id);});
+  const storico=db('storico',[]);
+  const idx=storico.findIndex(s=>s.data===dati.data);
+  if(idx>=0)storico[idx]=dati;else storico.unshift(dati);
+  if(storico.length>60)storico.pop();
+  dbSet('storico',storico);
+  aggiorna();
+  // Pubblica su Firebase (asincrono)
+  if(window._pubblicaMenuFirebase) window._pubblicaMenuFirebase(dati);
+  else document.getElementById('status').textContent='✓ Salvato!';
+  // Backup automatico
+  scaricaBackup();
+  setTimeout(()=>{
+    document.getElementById('status').textContent='';
+    stampaMenu();
+  },1200);
+}
+
+function scaricaBackup(){
+  const backup = {
+    piatti_primo: db('piatti_primo',[]),
+    piatti_secondo: db('piatti_secondo',[]),
+    storico: db('storico',[]),
+    data_backup: new Date().toISOString()
+  };
+  const blob = new Blob([JSON.stringify(backup, null, 2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'backup_canguro.json';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function stampaMenu(){
+      // A4 = 297mm, margini 8mm x2 = 16mm, una linea taglio = 4mm
+      // Disponibile per 2 comande = (297 - 16 - 4) / 2 = 138.5mm
+  const style = document.createElement('style');
+  style.id = 'print-override';
+  style.textContent = `
+    @media print {
+      @page { size: A4; margin: 8mm; }
+      .tabs, .panel, .preview-label, .btn-cucina-stampa, .status { display: none !important; }
+      .page { display: none !important; }
+      #pageMenu.active { display: block !important; }
+      #pageMenu.active .preview {
+        display: flex !important; flex-direction: column !important;
+        align-items: stretch !important; padding: 0 !important;
+        gap: 0 !important; max-height: none !important; overflow: visible !important;
+      }
+      #pageMenu.active .preview-cards {
+        display: flex !important; flex-direction: column !important;
+        gap: 0 !important; width: 100% !important;
+      }
+      #pageMenu.active .preview-cards .menu-card {
+        width: 100% !important;
+        height: 138mm !important;
+        min-height: 138mm !important;
+        max-height: 138mm !important;
+        overflow: hidden !important;
+        box-sizing: border-box !important;
+        page-break-inside: avoid !important;
+        font-size: 100% !important;
+        flex-shrink: 0 !important;
+      }
+      .cut-line-print {
+        display: flex !important; width: 100% !important;
+        height: 4mm !important; min-height: 4mm !important;
+        margin: 0 !important; flex-shrink: 0 !important;
+        align-items: center !important;
+      }
+    }
+  `;
+  document.head.appendChild(style);
+  window.print();
+  setTimeout(()=>{ const s = document.getElementById('print-override'); if(s) s.remove(); }, 1000);
+}
+
+function aggiungiPiatto(cat){
+  const inp=document.getElementById('new'+(cat==='primo'?'Primo':'Secondo'));
+  const n=cap(inp.value.trim());
+  if(!n)return;
+  const piatti=db('piatti_'+cat,[]);
+  if(!piatti.includes(n)){piatti.push(n);piatti.sort();dbSet('piatti_'+cat,piatti);}
+  inp.value='';renderArchivio();CAMPI.forEach(id=>buildCampo(id));aggiorna();
+}
+
+function eliminaPiatto(cat,nome){
+  dbSet('piatti_'+cat,db('piatti_'+cat,[]).filter(p=>p!==nome));
+  renderArchivio();CAMPI.forEach(id=>buildCampo(id));aggiorna();
+}
+
+function renderArchivio(){
+  ['primo','secondo'].forEach(cat=>{
+    const piatti=db('piatti_'+cat,[]);
+    const el=document.getElementById('list'+(cat==='primo'?'Primi':'Secondi'));
+    if(!piatti.length){el.innerHTML='<div class="empty-piatti">Nessun piatto ancora</div>';return;}
+    el.innerHTML=piatti.map(p=>`<div class="piatto-item"><span>${p}</span><button class="btn-del" onclick="eliminaPiatto('${cat}','${p.replace(/'/g,"\\'")}')">×</button></div>`).join('');
+  });
+}
+
+function renderStorico(){
+  const storico=db('storico',[]);
+  const el=document.getElementById('storicoList');
+  if(!storico.length){el.innerHTML='<div class="empty-msg">Nessun menu salvato ancora.</div>';return;}
+  el.innerHTML=storico.map((s,i)=>{
+    const pr=[s.p_p1,s.p_p2,s.c_p1].filter(v=>v&&v!=='—').join(', ');
+    return `<div class="storico-item"><div><div class="storico-date">${fmtData(s.data)}</div><div class="storico-preview">${pr||'—'}</div></div><div class="storico-actions"><button class="btn-small" onclick="caricaMenu(${i})">Riusa</button><button class="btn-small" style="color:#c00;border-color:#f99" onclick="eliminaMenu(${i})">Elimina</button></div></div>`;
+  }).join('');
+}
+
+function caricaMenu(i){
+  const s=db('storico',[])[i];
+  document.getElementById('data').value=s.data;
+  CAMPI.forEach(id=>{if(s[id]&&s[id]!=='—')setValCampo(id,s[id]);});
+  aggiorna();showTab('pageMenu');
+}
+
+function eliminaMenu(i){
+  const storico=db('storico',[]);storico.splice(i,1);dbSet('storico',storico);renderStorico();
+}
+
+function aggiornaCucina(){
+  document.getElementById('c_data').textContent=fmtData(document.getElementById('data').value);
+  const map={c_p_p1:'p_p1',c_p_p2:'p_p2',c_p_p3:'p_p3',c_p_s1:'p_s1',c_p_s2:'p_s2',c_p_s3:'p_s3',c_c_p1:'c_p1',c_c_p2:'c_p2',c_c_p3:'c_p3',c_c_s1:'c_s1',c_c_s2:'c_s2',c_c_s3:'c_s3'};
+  Object.entries(map).forEach(([cid,mid])=>{const el=document.getElementById(cid);if(el)el.textContent=getValCampo(mid);});
+}
+
+function stampaCucina(){
+  aggiornaCucina();
+  const style=document.createElement('style');
+  style.textContent='@page{size:A4 landscape;margin:8mm;}';
+  document.head.appendChild(style);
+  window.print();
+  document.head.removeChild(style);
+}
+
+function showTab(id){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  const tabs=['pageMenu','pageArchivio','pageStorico','pageCucina'];
+  document.querySelectorAll('.tab')[tabs.indexOf(id)].classList.add('active');
+  if(id==='pageArchivio')renderArchivio();
+  if(id==='pageStorico')renderStorico();
+  if(id==='pageCucina')aggiornaCucina();
+}
+
+function ripristinaBackup(input){
+  const file = input.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e){
+    try {
+      const backup = JSON.parse(e.target.result);
+      if(backup.piatti_primo) dbSet('piatti_primo', backup.piatti_primo);
+      if(backup.piatti_secondo) dbSet('piatti_secondo', backup.piatti_secondo);
+      if(backup.storico) dbSet('storico', backup.storico);
+      CAMPI.forEach(id=>buildCampo(id));
+      aggiorna();
+      renderArchivio();
+      alert('✓ Backup ripristinato! ' + (backup.piatti_primo||[]).length + ' primi e ' + (backup.piatti_secondo||[]).length + ' secondi caricati.');
+    } catch(err) {
+      alert('Errore nel file di backup.');
+    }
+  };
+  reader.readAsText(file);
+}
+
+// INIT
+document.getElementById('data').value=new Date().toISOString().split('T')[0];
+
+// DATABASE PIATTI INCORPORATO - carica solo se localStorage è vuoto
+const PIATTI_BUILTIN_PRIMO = ["Bauletti di ricotta e spinaci al forno","Bavette allo scoglio","Bavette al tonno","Cannelloni al forno","Casarecce ai 4 formaggi","Casarecce al Ragu'","Casarecce panna e prosciutto","Conchiglie alla pecorara","Conchiglie prosciutto e funghi","Crema di carote","Crema di patate","Crema di piselli","Crema parmantier","Fusilli alla boscaiola","Fusilli alla sorrentina","Fusilli all'Ortolana","Fusilli all'Amatriciana","Gnocchi al ragu'","Gnocchi di patate al pomodoro","Gnocchetti sardi fume","Lasagnetta alla norcina","Mezzemaniche al pesto","Mezzemaniche alla Norcina","Mezzemaniche alla Vigliacca","Minestrina in brodo","Minestrina in brodo di carne","Minestrone","Minestrone di verdure","Minestrone di verdure fresche","Orecchiette pomodoro piselli e prosciutto","Paccheri del marinaio","Pasta ai 4 formaggi","Pasta al nero di seppia","Pasta al pesce","Pasta al pomodoro","Pasta al ragu'","Pasta al ragu' bianco","Pasta al sugo di mazzoline","Pasta al sugo di pesce","Pasta al tonno","Pasta alla gricia","Pasta alla Marinara","Pasta alla puttanesca","Pasta alla vigliacca","Pasta alle Cozze","Pasta alle panocchie","Pasta allo scoglio","Pasta all'Amatriciana","Pasta con salsiccia","Pasta e ceci","Pasta e fagioli","Pasta gamberetti e zucchine","Pasta in bianco","Pasta panna e prosciutto","Pasta panna prosciutto e piselli","Pasta zucchine e gamberetti","Passato di verdure","Pastina in Brodo","Penne al ragu'","Penne alla puttanesca","Penne pomodoro e basilico","Penne prosciutto piselli e pomodoro","Pennette al Tonno","Pennette all'Arrabbiata","Pennette alla Parigina","Pipe alla pecorara","Ravioli ricotta e spinaci al burro e salvia","Rigatoni all'Amatriciana","Rigatoni alla Norma","Rigatoni alle melanzane","Risotto ai fiori di zucca e calamari","Risotto alla marinara","Risotto di mare","Sedanini panna prosciutto e piselli","Spaghetti aglio olio e peperoncino","Spaghetti alla Carbonara","Spaghetti alle vongole","Stracciatella in brodo","Tagliatelle al pesce","Tagliatelli al ragu'","Tortiglioni Spada e melanzane","Tortellini in brodo di carne","Tortellini panna e prosciutto","Trofie al ragu' di vitello","Vellutata di carote","Vellutata di piselli","Zuppa di farro","Zuppa di legumi"];
+
+const PIATTI_BUILTIN_SECONDO = ["Arrosto di vitello","Bocconcini di vitello","Braciola agli aromi","Braciola di maiale alla griglia","Braciola di maiale al rosmarino","Caprese","Carpaccio di tacchino rucola e grana","Coscia di pollo al forno","Coscia di pollo arrosto","Cotoletta","Cotoletta e patatine","Cozze Tarantina","Filetto di orata gratinato","Filetto di pesce dorato","Filetto di pesce fritto","Filetto di pesce gratinato","Filetto di pesce in guazzetto","Frittata","Frittata con cipolle","Frittata nature","Frittura calamari e gamberetti","Frittura dell'Adriatico","Hamburger e patatine","Insalatona Fantasy","Merluzzo al forno","Merluzzo alla marinara","Mozzarella","Mozzarella in carrozza","Omelette","Orata in acqua pazza","Paillard ai ferri","Paillard di vitello","Palombo alla marinara","Palombo alla Sanbenedettese","Passera alla Sambenedettese","Pescatrice gratinata","Pescatrice in potacchio","Pesce spada ai ferri","Pesce spada gratinato","Petto di pollo ai ferri","Petto di pollo burro e salvia","Petto di pollo al limone","Petto tacchino ai ferri","Piccatina al limone","Piatto freddo dello Chef","Pizzaiola","Pollo arrosto","Pollo in padella","Prosciutto al piatto","Prosciutto e melone","Prosciutto e mozzarella","Rotolo di frittata agli spinaci","Saltimbocca alla romana","Scaloppina ai funghi","Scaloppina al limone","Scaloppina al vino bianco","Scaloppina alla pizzaiola","Scottata di maiale","Seppie con patate","Seppie con piselli","Seppie piselli e patate","Sgombro alla Sambenedettese","Sogliola ai ferri","Speck e formaggio","Spezzatino con patate","Straccetti di pollo curry e mandorle","Tacchino porchettato","Tagliata di pollo con rucola","Uova al tegamino","Uova in trippa","Uova strapazzate","Uova strapazzate al pomodoro","Uova strapazzate con ricotta","Uova strapazzate con salsiccia","Valdostana","Vitello arrosto","Vitello tonnato"];
+
+function caricaDatabaseBuiltin(){
+  const esistentiP = db('piatti_primo',[]);
+  const esistentiS = db('piatti_secondo',[]);
+  // Carica solo se il localStorage è vuoto
+  if(esistentiP.length === 0){
+    dbSet('piatti_primo', PIATTI_BUILTIN_PRIMO);
+  }
+  if(esistentiS.length === 0){
+    dbSet('piatti_secondo', PIATTI_BUILTIN_SECONDO);
+  }
+}
+
+caricaDatabaseBuiltin();
+CAMPI.forEach(id=>buildCampo(id));
+aggiorna();
+</script>
+</body>
+</html>
