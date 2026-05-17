@@ -352,17 +352,22 @@ function aggiornaCelle(tableId, camere) {
     if (el) el.textContent = menuOggi[k] || '—';
   });
 
-  // Valori piatti fissi per camera
+  // Valori piatti fissi per camera (con GF)
   camere.forEach(cam => {
     const camData = comande[String(cam)] || null;
     chiavi.forEach(k => {
       const cell = document.getElementById(`cell-${tableId}-${cam}-${k}`);
       if (!cell) return;
       const [pasto, campo] = k.split('_');
-      const val = camData?.[pasto]?.[campo] || 0;
+      const val   = camData?.[pasto]?.[campo]        || 0;
+      const valGf = camData?.[pasto]?.[campo+'_gf']  || 0;
       if (val > 0) {
-        cell.textContent = val;
         cell.classList.add('has-val');
+        if (valGf > 0) {
+          cell.textContent = `${val} / ${valGf}GF`;
+        } else {
+          cell.textContent = val;
+        }
       } else {
         cell.textContent = '';
         cell.classList.remove('has-val');
@@ -371,8 +376,6 @@ function aggiornaCelle(tableId, camere) {
   });
 
   // ── VARIAZIONI DINAMICHE ─────────────────────────────────────
-  // Raccoglie tutte le variazioni ordinate dalle camere (v1, v2 per pranzo e cena)
-  // Struttura: { 'pranzo_v1': { nomeVar: 'Pasta in bianco', totali: {101: 2, 203: 1} }, ... }
   const varRaccolte = {};
 
   camere.forEach(cam => {
@@ -380,15 +383,14 @@ function aggiornaCelle(tableId, camere) {
     if (!camData) return;
     ['pranzo','cena'].forEach(pasto => {
       ['v1','v2'].forEach(vk => {
-        const qty = camData?.[pasto]?.[vk] || 0;
-        if (qty <= 0) return;
-        // Il nome della variazione viene dal menu pubblicato
-        const nomeVar = menuOggi?.[pasto+'_'+vk] || vk;
-        const key = pasto + '_' + vk + '_' + nomeVar; // chiave univoca
+        const qty     = camData?.[pasto]?.[vk]          || 0;
+        const nomeVar = camData?.[pasto]?.[vk + '_nome'] || '';
+        if (qty <= 0 || !nomeVar) return;
+        const key = pasto + '_' + nomeVar; // raggruppa per nome variazione
         if (!varRaccolte[key]) {
-          varRaccolte[key] = { pasto, vk, nomeVar, totali: {} };
+          varRaccolte[key] = { pasto, nomeVar, totali: {} };
         }
-        varRaccolte[key].totali[cam] = qty;
+        varRaccolte[key].totali[cam] = (varRaccolte[key].totali[cam] || 0) + qty;
       });
     });
   });
